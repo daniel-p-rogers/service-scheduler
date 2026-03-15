@@ -7,6 +7,8 @@ public class PersonWithUnavailabilityModel
     public PersonWithUnavailabilityModel(PersonModel personModel, ICollection<PersonUnavailabilityModel> unavailabilityModels)
     {
         Name = personModel.Name;
+        MaximumServicesInPeriod = personModel.MaximumServicesInPeriod;
+        IdealDaysBetweenServices = personModel.IdealDaysBetweenServices;
         PermittedSessions = personModel.PermittedSessions;
         UnavailableSessions = unavailabilityModels
             .Where(o => o.Name == Name)
@@ -15,6 +17,8 @@ public class PersonWithUnavailabilityModel
 
     }
     public string Name { get; set; }
+    public int? MaximumServicesInPeriod { get; set; }
+    public int IdealDaysBetweenServices { get; set; }
     public ICollection<ServiceRoleModel> PermittedSessions { get; set; }
     public ICollection<Unavailability> UnavailableSessions { get; set; }
 

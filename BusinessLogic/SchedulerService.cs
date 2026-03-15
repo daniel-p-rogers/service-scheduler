@@ -1,5 +1,4 @@
 ﻿using BusinessLogic.Models;
-using CsvHelper.Delegates;
 using DataAccess;
 using DataAccess.Models;
 using Microsoft.Extensions.Hosting;
@@ -21,11 +20,13 @@ public class SchedulerService : BackgroundService
         ILogger<SchedulerService> logger)
     {
         _personLoader = personLoader ?? throw new ArgumentNullException(nameof(personLoader));
-        _serviceDateRoleLoader = serviceDateRoleLoader ?? throw new ArgumentNullException(nameof(serviceDateRoleLoader));
-        _personUnavailabilityLoader = personUnavailabilityLoader ?? throw new ArgumentNullException(nameof(personUnavailabilityLoader));
+        _serviceDateRoleLoader =
+            serviceDateRoleLoader ?? throw new ArgumentNullException(nameof(serviceDateRoleLoader));
+        _personUnavailabilityLoader = personUnavailabilityLoader ??
+                                      throw new ArgumentNullException(nameof(personUnavailabilityLoader));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-    
+
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var people = _personLoader.LoadData();
@@ -50,7 +51,7 @@ public class SchedulerService : BackgroundService
             var peopleAvailable = peopleWithUnavailability
                 .Where(p => p.IsAvailableForDate(serviceDateRole))
                 .ToList();
-            
+
             _logger.LogInformation("There are {count} people available for the {date} {serviceTime} service for {role}",
                 peopleAvailable.Count().ToString(),
                 serviceDateRole.Date.ToString(),
@@ -71,15 +72,37 @@ public class SchedulerService : BackgroundService
         {
             iterationCount++;
             _logger.LogInformation("Iteration {iterationCount}: Beginning", iterationCount);
-            _logger.LogInformation("Iteration {iterationCount}: {scheduledCount} have been scheduled, {remainingCount} still to go", iterationCount, serviceScheduleLedger.Count(), potentialLedgerEntries.Count());
-            var potentialNextLedgerEntry = potentialLedgerEntries.OrderBy(o => o.PossiblePeopleCount).First();
+            _logger.LogInformation(
+                "Iteration {iterationCount}: {scheduledCount} have been scheduled, {remainingCount} still to go",
+                iterationCount, serviceScheduleLedger.Count(), potentialLedgerEntries.Count());
+            var potentialNextLedgerEntry = potentialLedgerEntries
+                .OrderBy(o => o.PossiblePeopleCount)
+                .First();
 
-            // Remove people who are already serving this week or a week either side.
-            var peopleToExclude = potentialNextLedgerEntry.PossiblePeople
+            // Remove people who are already serving within their IdealDaysBetweenServices or have reached the max number of services they  can serve
+            var peopleToExclude = new List<PersonWithUnavailabilityModel>();
+
+            var peopleToExcludeDueToExceedingMaxServices = potentialNextLedgerEntry.PossiblePeople
+                .Where(p =>
+                    p.MaximumServicesInPeriod.HasValue &&
+                    serviceScheduleLedger
+                        .Count(ssl => ssl.AssignedPerson == p) >= p.MaximumServicesInPeriod)
+                .ToList();
+            peopleToExclude.AddRange(peopleToExcludeDueToExceedingMaxServices);
+
+            var peopleToExcludeDueToServingTooRecently = potentialNextLedgerEntry.PossiblePeople
                 .Where(p => serviceScheduleLedger
-                    .Any(s => s.AssignedPerson == p &&
-                              Math.Abs(s.ServiceDateRole.Date.DayNumber -
-                                       potentialNextLedgerEntry.ServiceDateRole.Date.DayNumber) <= 7))
+                    .Any(s =>
+                        s.AssignedPerson == p
+                        && Math.Abs(s.ServiceDateRole.Date.DayNumber -
+                                    potentialNextLedgerEntry.ServiceDateRole.Date.DayNumber) <=
+                        p.IdealDaysBetweenServices))
+                .ToList();
+
+            peopleToExclude.AddRange(peopleToExcludeDueToServingTooRecently);
+
+            peopleToExclude = peopleToExclude
+                .Distinct()
                 .ToList();
 
             var newLedgerEntry = new ServiceScheduleLedgerEntry
@@ -99,13 +122,14 @@ public class SchedulerService : BackgroundService
                     {
                         throw new Exception("There is no way to complete this rota");
                     }
-                    
+
                     var lastLedgerEntry = serviceScheduleLedger.Last();
                     lastLedgerEntry.RejectAssignedPerson();
 
                     if (lastLedgerEntry.OtherPossiblePeople.Any())
                     {
-                        var bestCandidate = GetBestCandidate(lastLedgerEntry.OtherPossiblePeople, serviceScheduleLedger);
+                        var bestCandidate =
+                            GetBestCandidate(lastLedgerEntry.OtherPossiblePeople, serviceScheduleLedger);
                         lastLedgerEntry.AssignPerson(bestCandidate);
                         alternativeConfigurationFound = true;
                     }
@@ -128,7 +152,7 @@ public class SchedulerService : BackgroundService
             {
                 // Find the person who is currently both available and assigned least
                 var bestCandidate = GetBestCandidate(newLedgerEntry.OtherPossiblePeople, serviceScheduleLedger);
-                
+
                 newLedgerEntry.AssignPerson(bestCandidate);
                 serviceScheduleLedger.Add(newLedgerEntry);
                 potentialLedgerEntries.Remove(potentialNextLedgerEntry);
@@ -141,8 +165,8 @@ public class SchedulerService : BackgroundService
     }
 
     private PersonWithUnavailabilityModel GetBestCandidate
-        (ICollection<PersonWithUnavailabilityModel> peopleOptions,
-            List<ServiceScheduleLedgerEntry> existingLedger)
+    (ICollection<PersonWithUnavailabilityModel> peopleOptions,
+        List<ServiceScheduleLedgerEntry> existingLedger)
     {
         var bestCandidate = peopleOptions
             .Select(o => new
@@ -160,10 +184,10 @@ public class SchedulerService : BackgroundService
 
     private void PrintSchedule(ICollection<ServiceScheduleLedgerEntry> serviceScheduleLedger)
     {
-        var outputFileName = "schedule-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
+        var outputFileName = "./OutputRotas/schedule-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
 
         using var writer = new StreamWriter(outputFileName);
-        
+
         _logger.LogInformation("The schedule is as follows:");
 
         var orderedSchedule = serviceScheduleLedger
@@ -180,23 +204,24 @@ public class SchedulerService : BackgroundService
             var serviceTime = ledgerItem.ServiceDateRole.ServiceRole.ServiceTime;
             var role = ledgerItem.ServiceDateRole.ServiceRole.Role;
             var name = ledgerItem.AssignedPerson.Name;
-            _logger.LogInformation("{date} {serviceTime} {role}: {name}",date, serviceTime, role, name);
+            _logger.LogInformation("{date} {serviceTime} {role}: {name}", date, serviceTime, role, name);
 
             if (previousDate != date)
             {
                 writer.WriteLine();
             }
+
             writer.WriteLine($"{date} {serviceTime} {role}: {name}");
 
             previousDate = date;
         }
-        
+
         writer.WriteLine();
         writer.WriteLine("---");
         writer.WriteLine();
-        
+
         _logger.LogInformation("Summary statistics:");
-        
+
         var countsByPerson = orderedSchedule
             .GroupBy(o => o.AssignedPerson)
             .Select(o => new

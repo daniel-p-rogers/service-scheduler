@@ -9,7 +9,9 @@ public class ServiceDateRoleLoaderService : IDataLoader<ServiceDateRoleModel>
 {
     public ICollection<ServiceDateRoleModel> LoadData()
     {
-        using var reader = new StreamReader("./CsvData/ServiceDates.csv");
+        var exeFolder = AppContext.BaseDirectory;
+        var dataPath = Path.Combine(exeFolder, "ServiceDates.csv");
+        using var reader = new StreamReader(dataPath);
         using var csv = new CsvReader(reader, new CultureInfo("en-GB"));
         var records = csv.GetRecords<ServiceDateCsvModel>().ToList();
 

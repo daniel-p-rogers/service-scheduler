@@ -9,7 +9,9 @@ public class PersonUnavailabilityLoaderService : IDataLoader<PersonUnavailabilit
 {
     public ICollection<PersonUnavailabilityModel> LoadData()
     {
-        using var reader = new StreamReader("./CsvData/Unavailability.csv");
+        var exeFolder = AppContext.BaseDirectory;
+        var dataPath = Path.Combine(exeFolder, "Unavailability.csv");
+        using var reader = new StreamReader(dataPath);
         using var csv = new CsvReader(reader, new CultureInfo("en-GB"));
         var records = csv.GetRecords<PersonUnavailabilityModel>().ToList();
 

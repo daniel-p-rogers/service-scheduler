@@ -186,7 +186,10 @@ public class SchedulerService : BackgroundService
 
     private void PrintSchedule(ICollection<ServiceScheduleLedgerEntry> serviceScheduleLedger)
     {
-        var outputFileName = "./OutputRotas/schedule-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
+        var outputDirectory = "./OutputRotas";
+        Directory.CreateDirectory(outputDirectory);
+        var outputFileName = Path.Combine(outputDirectory,
+            "schedule-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt");
 
         using var writer = new StreamWriter(outputFileName);
 

@@ -11,16 +11,4 @@
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0-preview.6.23329.7" />
     </ItemGroup>
 
-    <ItemGroup>
-      <None Update="CsvData\People.csv">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="CsvData\ServiceDates.csv">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="CsvData\Unavailability.csv">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
-
 </Project>

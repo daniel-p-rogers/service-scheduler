@@ -70,6 +70,8 @@ public class SchedulerService : BackgroundService
         var iterationCount = 0;
         while (potentialLedgerEntries.Any())
         {
+            stoppingToken.ThrowIfCancellationRequested();
+
             iterationCount++;
             _logger.LogInformation("Iteration {iterationCount}: Beginning", iterationCount);
             _logger.LogInformation(

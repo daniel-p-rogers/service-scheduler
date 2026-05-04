@@ -12,4 +12,15 @@ builder.Services.AddHostedService<SchedulerService>();
 builder.Logging.AddConsole();
 
 using var host = builder.Build();
-await host.StartAsync();
+
+var cancellationToken = new CancellationTokenSource();
+
+Console.CancelKeyPress += (sender, eventArgs) =>
+{
+    Console.WriteLine("Cancel event triggered");
+    cancellationToken.Cancel();
+    eventArgs.Cancel = true;
+};
+
+
+await host.StartAsync(cancellationToken.Token);
